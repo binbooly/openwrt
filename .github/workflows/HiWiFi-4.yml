@@ -36,6 +36,18 @@ jobs:
           echo "--------------------------硬盘信息--------------------------"
           echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
+      - name: Clone Source
+        run: |
+          sudo mkdir /opt/openwrt
+          sudo chown -R runner:runner /opt/openwrt
+          git clone https://github.com/coolsnowwolf/lede
+          ll
+
+      - name: Update feeds
+        run: |
+          cd /opt/openwrt
+          ll
+
       - name: Space cleanup and Initialization environment
         env:
           DEBIAN_FRONTEND: noninteractive
