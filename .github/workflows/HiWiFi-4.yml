@@ -64,24 +64,31 @@ jobs:
           sudo -E apt clean
           sudo -E timedatectl set-timezone "Asia/Shanghai"
 
+      # 从 GitHub Marketplace 调用 v4.2.2 版本的 checkout Action 对当前仓库执行 checkout 操作，详见：https://github.com/marketplace/actions/checkout。
       - name: Checkout OpenWrt
-        # 从 GitHub Marketplace 调用 v4.2.2 版本的 checkout Action 对当前仓库执行 checkout 操作，详见：https://github.com/marketplace/actions/checkout。
         uses: actions/checkout@v4.2.2
 
+      # 下载 OpenWrt 源码。这里下载的是原版 OpenWrt。如果需要编译其它分支版本的 OpenWrt，则需要修改 git clone 里的 URL。
       - name: Clone Source
         run: |
           sudo mkdir /opt/openwrt
           sudo chown -R runner:runner /opt/openwrt
           git clone https://github.com/openwrt/openwrt /opt/openwrt
 
-      - name: Update feeds
+      # 添加软件源。这里添加了包含 Passwall 应用的两个软件源。
+      - name: Add feeds
         run: |
           cd /opt/openwrt
           echo -e "src-git kenzo https://github.com/kenzok8/openwrt-packages\n" >> ./feeds.conf.default
           echo -e "src-git small https://github.com/kenzok8/small\n" >> ./feeds.conf.default
+
+      - name: Update feeds
+        run: |
+          cd /opt/openwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
+      # 编译配置。
       - name: Configuration OpenWrt
         run: |
           cd /opt/openwrt
@@ -115,7 +122,7 @@ jobs:
           cp -rf $(find /opt/openwrt/bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") /opt/openwrt/artifact/buildinfo/
 
       - name: Upload buildinfo
-        # 从 GitHub Marketplace 调用 v4.6.2 版本的 upload-artifact Action 将指定的文件上传至成品列表中供下载，详见：https://github.com/marketplace/actions/upload-a-build-artifact。
+        # 从 GitHub Marketplace 调用 v4.6.2 版本的 upload-artifact Action 将指定文件上传至成品列表中供下载，详见：https://github.com/marketplace/actions/upload-a-build-artifact。
         uses: actions/upload-artifact@v4.6.2
         with:
           name: OpenWrt_buildinfo
