@@ -72,7 +72,7 @@ jobs:
         run: |
           sudo mkdir /opt/openwrt
           sudo chown -R runner:runner /opt/openwrt
-          git clone https://github.com/coolsnowwolf/lede /opt/openwrt
+          git clone https://github.com/openwrt/openwrt /opt/openwrt
 
       - name: Update feeds
         run: |
