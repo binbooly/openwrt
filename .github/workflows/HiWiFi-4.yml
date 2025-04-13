@@ -77,9 +77,8 @@ jobs:
       - name: Update feeds
         run: |
           cd /opt/openwrt
-          sed -i 's/#src-git helloworld/src-git helloworld/g' ./feeds.conf.default
-          # echo -e "src-git kenzo https://github.com/kenzok8/openwrt-packages\n" >> ./feeds.conf.default
-          # echo -e "src-git small https://github.com/kenzok8/small\n" >> ./feeds.conf.default
+          echo -e "src-git kenzo https://github.com/kenzok8/openwrt-packages\n" >> ./feeds.conf.default
+          echo -e "src-git small https://github.com/kenzok8/small\n" >> ./feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
