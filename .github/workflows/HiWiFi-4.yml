@@ -1,4 +1,7 @@
 #
+# GitHub Actions 的工作流语法：
+# https://docs.github.com/zh/actions/writing-workflows/workflow-syntax-for-github-actions
+#
 # 本文件基于如下文件修改所得：
 # https://github.com/coolsnowwolf/lede/blob/master/.github/workflows/openwrt-ci.yml
 # https://github.com/esirplayground/AutoBuild-OpenWrt/blob/master/.github/workflows/Build_OP_Nanopi_R4S.yml
@@ -6,25 +9,33 @@
 # 适用于极路由4(HC5692)。
 #
 
+# 工作流名称，当前仓库内必须唯一。
 name: OpenWrt-HiWiFi.4
 
+# 工作流触发器，可同时指定多个事件。更多事件介绍：https://docs.github.com/zh/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows。
 on:
+  # 当工作流文件存在于默认分支上时才允许触发此事件。
   repository_dispatch:
+  # 手动运行工作流程事件。
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# 作业列表。一个工作流内可以有多个作业，多个作业默认并行运行。
 jobs:
 
   build_openwrt:
 
     name: Build OpenWrt Firmware
 
+    # 运行当前作业的计算机（操作系统）类型。
     runs-on: ubuntu-22.04
 
+    # 一个作业可以有多个步骤，步骤会顺序执行，但每个步骤都是独立进程。
     steps:
       - name: Check Server Performance
+        # 脚本命令运行列表。
         run: |
           echo "-------------------------- CPU信息 --------------------------"
           echo "CPU物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
@@ -37,6 +48,7 @@ jobs:
           echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
       - name: Space cleanup and Initialization environment
+        # 为当前步骤的进程初始化环境变量，步骤完成后进程将退出，环境变量也同时清除。
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -53,7 +65,8 @@ jobs:
           sudo -E timedatectl set-timezone "Asia/Shanghai"
 
       - name: Checkout OpenWrt
-        uses: actions/checkout@v4
+        # 从 GitHub Marketplace 调用 v4.2.2 版本的 checkout Action 对当前仓库执行 checkout 操作，详见：https://github.com/marketplace/actions/checkout。
+        uses: actions/checkout@v4.2.2
 
       - name: Clone Source
         run: |
@@ -70,16 +83,16 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Generate configuration file
+      - name: Configuration OpenWrt
         run: |
           cd /opt/openwrt
-          cp -f "${GITHUB_WORKSPACE}/HiWiFi-4.config" ".config"
-          cp -f "${GITHUB_WORKSPACE}/HiWiFi-4.config" ".config"
+          cp -f "${GITHUB_WORKSPACE}/HiWiFi-4/.config" ".config"
+          cp -f "${GITHUB_WORKSPACE}/HiWiFi-4/luci" "feeds/luci/modules/luci-base/root/etc/config/luci"
 
       - name: Download packages
         run: |
           cd /opt/openwrt
-          make download -j16
+          make -j$(nproc) download V=s
 
       - name: Compile firmware
         run: |
@@ -103,19 +116,20 @@ jobs:
           cp -rf $(find /opt/openwrt/bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") /opt/openwrt/artifact/buildinfo/
 
       - name: Upload buildinfo
-        uses: actions/upload-artifact@v4
+        # 从 GitHub Marketplace 调用 v4.6.2 版本的 upload-artifact Action 将指定的文件上传至成品列表中供下载，详见：https://github.com/marketplace/actions/upload-a-build-artifact。
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: OpenWrt_buildinfo
           path: /opt/openwrt/artifact/buildinfo/
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: OpenWrt_package
           path: /opt/openwrt/artifact/package/
 
       - name: Upload firmware
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: OpenWrt_firmware
           path: /opt/openwrt/bin/targets/
