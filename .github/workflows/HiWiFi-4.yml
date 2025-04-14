@@ -79,10 +79,9 @@ jobs:
           sudo chown -R runner:runner /opt/openwrt
           git clone $REPO_URL /opt/openwrt
 
-      # 添加软件源。
       - name: Load custom feeds
         run: |
-          [ -e ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default ] && mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default /opt/openwrt/feeds.conf.default
+          [ -e "${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default" ] && mv -f "${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default" /opt/openwrt/feeds.conf.default
 
       - name: Update feeds
         run: |
@@ -92,9 +91,9 @@ jobs:
       # 编译配置。
       - name: Configuration OpenWrt
         run: |
-          mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
+          mv -f "${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config" /opt/openwrt/.config
           # 如果还有其它文件，则保持目录结构全部复制之。ls -A 列出所有目录和文件，-n 测试字符串是否非空。
-          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
+          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && cp -rf "${GITHUB_WORKSPACE}${RESOURCE_DIR}/*" /opt/openwrt/
 
       - name: Download packages
         run: |
