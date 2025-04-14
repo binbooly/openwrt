@@ -1,1 +1,119 @@
+name: OpenWrt-HiWiFi.1s
 
+on:
+  repository_dispatch:
+  workflow_dispatch:
+
+env:
+  REPO_URL: https://github.com/openwrt/openwrt
+  RESOURCE_DIR: /HiWiFi-1s
+
+jobs:
+
+  build_openwrt:
+
+    name: Build OpenWrt Firmware
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check Server Performance
+        run: |
+          echo "-------------------------- CPU 信息 --------------------------"
+          echo "CPU 物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
+          echo "CPU 核心数量: $(nproc)"
+          echo -e "CPU 型号信息:$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
+          echo "-------------------------- 内存信息 --------------------------"
+          echo "已安装内存详细信息:"
+          echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
+          echo "-------------------------- 硬盘信息 --------------------------"
+          echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
+
+      - name: Space cleanup and Initialization environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          docker rmi `docker images -q`
+          sudo -E rm -rf /usr/share/dotnet /etc/mysql /etc/php /etc/apt/sources.list.d /usr/local/lib/android
+          sudo -E apt-mark hold grub-efi-amd64-signed
+          sudo -E apt update
+          sudo -E apt -y purge azure-cli* docker* ghc* zulu* llvm* firefox google* dotnet* powershell* openjdk* mysql* php* mongodb* dotnet* snap*
+          sudo -E apt -y full-upgrade
+          sudo -E apt -y install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib gettext genisoimage git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool llvm lrzsz msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+          sudo -E systemctl daemon-reload
+          sudo -E apt -y autoremove --purge
+          sudo -E apt clean
+          sudo -E timedatectl set-timezone "Asia/Shanghai"
+
+      - name: Checkout OpenWrt
+        uses: actions/checkout@v4
+
+      - name: Clone Source
+        run: |
+          sudo mkdir /opt/openwrt
+          sudo chown -R runner:runner /opt/openwrt
+          git clone $REPO_URL /opt/openwrt
+
+      - name: Load custom feeds
+        run: |
+          [ -e ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default ] && mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default /opt/openwrt/feeds.conf.default
+
+      - name: Update feeds
+        run: |
+          /opt/openwrt/scripts/feeds update -a
+          /opt/openwrt/scripts/feeds install -a
+
+      - name: Configuration OpenWrt
+        run: |
+          mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
+          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
+
+      - name: Download packages
+        run: |
+          cd /opt/openwrt
+          make -j$(nproc) download V=s
+
+      - name: Compile firmware
+        id: compile
+        run: |
+          cd /opt/openwrt
+          make -j$(nproc) || make -j1 V=s
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "--------------------------"
+          echo "Space usage:"
+          echo "--------------------------"
+          df -h
+          echo "--------------------------"
+          du -h --max-depth=1 /opt/openwrt/ --exclude=build_dir --exclude=bin
+          du -h --max-depth=1 /opt/openwrt/build_dir
+          du -h --max-depth=1 /opt/openwrt/bin
+
+      - name: Prepare artifact
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          mkdir -p /opt/openwrt/artifact/package
+          mkdir -p /opt/openwrt/artifact/buildinfo
+          rm -rf $(find /opt/openwrt/bin/targets/ -type d -name "packages")
+          cp -rf $(find /opt/openwrt/bin/packages/ -type f -name "*.ipk" -o -name "*.apk") /opt/openwrt/artifact/package/
+          cp -rf $(find /opt/openwrt/bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") /opt/openwrt/artifact/buildinfo/
+
+      - name: Upload buildinfo
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
+        with:
+          name: OpenWrt_buildinfo
+          path: /opt/openwrt/artifact/buildinfo/
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
+        with:
+          name: OpenWrt_package
+          path: /opt/openwrt/artifact/package/
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
+        with:
+          name: OpenWrt_firmware
+          path: /opt/openwrt/bin/targets/
