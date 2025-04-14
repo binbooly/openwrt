@@ -1,4 +1,4 @@
-name: OpenWrt-HiWiFi.1s
+name: OpenWrt-HiWiFi.4
 
 on:
   repository_dispatch:
@@ -19,15 +19,15 @@ jobs:
     steps:
       - name: Check Server Performance
         run: |
-          echo "-------------------------- CPU 信息 --------------------------"
-          echo "CPU 物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
-          echo "CPU 核心数量: $(nproc)"
-          echo -e "CPU 型号信息:$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
-          echo "-------------------------- 内存信息 --------------------------"
-          echo "已安装内存详细信息:"
+          echo "-------------------------- CPU INFO --------------------------"
+          echo "CPU 物理数量：$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
+          echo "CPU 核心数量：$(nproc)"
+          echo -e "CPU 型号信息：$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
+          echo "-------------------------- MEMORY INFO --------------------------"
+          echo "已安装内存详细信息："
           echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
-          echo "-------------------------- 硬盘信息 --------------------------"
-          echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
+          echo "-------------------------- DISK INFO --------------------------"
+          echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
       - name: Space cleanup and Initialization environment
         env:
