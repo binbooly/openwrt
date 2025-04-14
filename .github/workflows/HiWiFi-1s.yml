@@ -56,7 +56,7 @@ jobs:
 
       - name: Load custom feeds
         run: |
-          [ -e ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default ] && mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default /opt/openwrt/feeds.conf.default
+          [ -e "${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default" ] && mv -f "${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default" /opt/openwrt/feeds.conf.default
 
       - name: Update feeds
         run: |
@@ -65,8 +65,8 @@ jobs:
 
       - name: Configuration OpenWrt
         run: |
-          mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
-          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
+          mv -f "${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config" /opt/openwrt/.config
+          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && cp -rf "${GITHUB_WORKSPACE}${RESOURCE_DIR}/*" /opt/openwrt/
 
       - name: Download packages
         run: |
