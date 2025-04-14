@@ -17,6 +17,19 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+      - name: Check Server Performance
+        # 当前步骤内运行的脚本。
+        run: |
+          echo "-------------------------- CPU INFO --------------------------"
+          echo "CPU 物理数量：$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
+          echo "CPU 核心数量：$(nproc)"
+          echo -e "CPU 型号信息：$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
+          echo "-------------------------- MEMORY INFO --------------------------"
+          echo "已安装内存详细信息："
+          echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
+          echo "-------------------------- DISK INFO --------------------------"
+          echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
+
       - name: Checkout OpenWrt
         uses: actions/checkout@v4
 
@@ -40,3 +53,8 @@ jobs:
           mv -f "${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config" /opt/openwrt/.config
           [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
           find /opt/openwrt
+
+      - name: Download packages
+        run: |
+          cd /opt/openwrt
+          make -j$(nproc) download V=s
