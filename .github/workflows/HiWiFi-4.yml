@@ -35,7 +35,7 @@ jobs:
     # 一个作业可以有多个步骤，步骤会顺序执行，但每个步骤都是独立进程。
     steps:
       - name: Check Server Performance
-        # 脚本命令运行列表。
+        # 当前步骤内运行的脚本命令列表。
         run: |
           echo "-------------------------- CPU信息 --------------------------"
           echo "CPU物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
@@ -121,8 +121,8 @@ jobs:
           cp -rf $(find /opt/openwrt/bin/packages/ -type f -name "*.ipk") /opt/openwrt/artifact/package/
           cp -rf $(find /opt/openwrt/bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") /opt/openwrt/artifact/buildinfo/
 
+      # 从 GitHub Marketplace 调用 v4.6.2 版本的 upload-artifact Action，将指定文件上传至成品列表中供下载，详见：https://github.com/marketplace/actions/upload-a-build-artifact。
       - name: Upload buildinfo
-        # 从 GitHub Marketplace 调用 v4.6.2 版本的 upload-artifact Action 将指定文件上传至成品列表中供下载，详见：https://github.com/marketplace/actions/upload-a-build-artifact。
         uses: actions/upload-artifact@v4.6.2
         with:
           name: OpenWrt_buildinfo
