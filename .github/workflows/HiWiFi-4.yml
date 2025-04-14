@@ -3,6 +3,7 @@
 #
 # 本文件基于如下文件修改所得：
 # https://github.com/coolsnowwolf/lede/blob/master/.github/workflows/openwrt-ci.yml
+# https://github.com/P3TERX/Actions-OpenWrt/blob/main/.github/workflows/openwrt-builder.yml
 #
 # GitHub Actions 的工作流语法：
 # https://docs.github.com/zh/actions/writing-workflows/workflow-syntax-for-github-actions
@@ -13,13 +14,17 @@ name: OpenWrt-HiWiFi.4
 
 # 工作流触发器，可同时指定多个事件。更多事件介绍：https://docs.github.com/zh/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows。
 on:
-  # 当工作流文件存在于默认分支上时才允许触发此事件。
+  # 当前工作流文件存在于默认分支上时才允许触发此事件。
   repository_dispatch:
   # 手动运行工作流程事件。
   workflow_dispatch:
 
-permissions:
-  contents: read
+# 为工作流内的所有作业步骤初始化全局环境变量，可在所有步骤内的脚本中访问。
+env:
+  # OpenWrt 的 git 仓库 URL。本示例编译的是原版 OpenWrt，如果打算编译其它分支版本的 OpenWrt，应修改此 URL。
+  REPO_URL: https://github.com/openwrt/openwrt
+  # 编译配置文件，软件源配置文件，以及其它所需文件在仓库里的目录描述。
+  RESOURCE_DIR: /HiWiFi-4
 
 # 作业列表。一个工作流内可以有多个作业，多个作业默认并行运行。
 jobs:
@@ -31,10 +36,10 @@ jobs:
     # 运行当前作业的计算机（操作系统）类型。
     runs-on: ubuntu-22.04
 
-    # 一个作业可以有多个步骤，步骤会顺序执行，但每个步骤都是独立进程。
+    # 一个作业可以有多个步骤，步骤会顺序执行，每个步骤都是独立进程。
     steps:
       - name: Check Server Performance
-        # 当前步骤内运行的脚本命令列表。
+        # 当前步骤内运行的脚本。
         run: |
           echo "-------------------------- CPU信息 --------------------------"
           echo "CPU物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
@@ -67,32 +72,29 @@ jobs:
       - name: Checkout OpenWrt
         uses: actions/checkout@v4
 
-      # 下载 OpenWrt 源码。这里下载的是原版 OpenWrt。如果需要编译其它分支版本的 OpenWrt，则需要修改 git clone 里的 URL。
+      # 下载 OpenWrt 源码。
       - name: Clone Source
         run: |
           sudo mkdir /opt/openwrt
           sudo chown -R runner:runner /opt/openwrt
-          git clone https://github.com/openwrt/openwrt /opt/openwrt
+          git clone $REPO_URL /opt/openwrt
 
-      # 添加软件源。这里添加了包含 Passwall 应用的两个软件源。
-      - name: Add feeds
+      # 添加软件源。
+      - name: Load custom feeds
         run: |
-          cd /opt/openwrt
-          echo -e "src-git kenzo https://github.com/kenzok8/openwrt-packages\n" >> ./feeds.conf.default
-          echo -e "src-git small https://github.com/kenzok8/small\n" >> ./feeds.conf.default
+          [ -e ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default ] && mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default /opt/openwrt/feeds.conf.default
 
       - name: Update feeds
         run: |
-          cd /opt/openwrt
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          /opt/openwrt/scripts/feeds update -a
+          /opt/openwrt/scripts/feeds install -a
 
       # 编译配置。
       - name: Configuration OpenWrt
         run: |
-          cd /opt/openwrt
-          cp -f "${GITHUB_WORKSPACE}/HiWiFi-4/.config" ".config"
-          cp -f "${GITHUB_WORKSPACE}/HiWiFi-4/luci" "feeds/luci/modules/luci-base/root/etc/config/luci"
+          mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
+          # 如果还有其它文件，则保持目录结构全部复制之。ls -A 列出所有目录和文件，-n 测试字符串是否非空。
+          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
 
       - name: Download packages
         run: |
@@ -100,41 +102,48 @@ jobs:
           make -j$(nproc) download V=s
 
       - name: Compile firmware
+        id: compile
         run: |
           cd /opt/openwrt
           make -j$(nproc) || make -j1 V=s
+          # 向 $GITHUB_OUTPUT 中写入可以创建当前步骤内的变量，通过 steps.{步骤 ID}.outputs.{变量名} 的 Workflow 语法访问。向 $GITHUB_ENV 中写入可以创建全局环境变量，通过 env.{变量名} 的 Workflow 语法访问。
+          echo "status=success" >> $GITHUB_OUTPUT
           echo "--------------------------"
           echo "Space usage:"
           echo "--------------------------"
           df -h
           echo "--------------------------"
-          du -h --max-depth=1 ./ --exclude=build_dir --exclude=bin
-          du -h --max-depth=1 ./build_dir
-          du -h --max-depth=1 ./bin
+          du -h --max-depth=1 /opt/openwrt/ --exclude=build_dir --exclude=bin
+          du -h --max-depth=1 /opt/openwrt/build_dir
+          du -h --max-depth=1 /opt/openwrt/bin
 
       - name: Prepare artifact
+        if: steps.compile.outputs.status == 'success'
         run: |
           mkdir -p /opt/openwrt/artifact/package
           mkdir -p /opt/openwrt/artifact/buildinfo
           rm -rf $(find /opt/openwrt/bin/targets/ -type d -name "packages")
-          cp -rf $(find /opt/openwrt/bin/packages/ -type f -name "*.ipk") /opt/openwrt/artifact/package/
+          cp -rf $(find /opt/openwrt/bin/packages/ -type f -name "*.ipk" -o -name "*.apk") /opt/openwrt/artifact/package/
           cp -rf $(find /opt/openwrt/bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") /opt/openwrt/artifact/buildinfo/
 
       # 从 GitHub Marketplace 调用 v4 版本的 upload-artifact Action，将指定文件上传至成品列表中供下载，详见：https://github.com/marketplace/actions/upload-a-build-artifact。
       - name: Upload buildinfo
         uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
         with:
           name: OpenWrt_buildinfo
           path: /opt/openwrt/artifact/buildinfo/
 
       - name: Upload package
         uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
         with:
           name: OpenWrt_package
           path: /opt/openwrt/artifact/package/
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
         with:
           name: OpenWrt_firmware
           path: /opt/openwrt/bin/targets/
