@@ -1,4 +1,4 @@
-name: OpenWrt-HiWiFi.1s
+name: OpenWrt-HiWiFi-1s
 
 on:
   repository_dispatch:
