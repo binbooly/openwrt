@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 env:
-  REPO_URL: https://github.com/openwrt/openwrt
+  REPO_URL: https://github.com/Lienol/openwrt
   RESOURCE_DIR: /Mi-Router-3-Pro
 
 jobs:
