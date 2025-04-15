@@ -22,7 +22,7 @@ on:
 # 为工作流内的所有作业步骤初始化全局环境变量，可在所有步骤内的脚本中访问。
 env:
   # OpenWrt 的 git 仓库 URL。本示例编译的是原版 OpenWrt，如果打算编译其它分支版本的 OpenWrt，应修改此 URL。
-  REPO_URL: https://github.com/openwrt/openwrt
+  REPO_URL: https://github.com/immortalwrt/immortalwrt
   # 编译配置文件，软件源配置文件，以及其它所需文件在仓库里的目录描述。
   RESOURCE_DIR: /HiWiFi-4
 
