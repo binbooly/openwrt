@@ -66,7 +66,9 @@ jobs:
       - name: Configuration OpenWrt
         run: |
           mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
-          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
+          if [ "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ]; then
+            cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
+          fi
 
       - name: Download packages
         run: |
