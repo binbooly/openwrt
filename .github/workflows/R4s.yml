@@ -1,4 +1,4 @@
-name: OpenWrt-Mi-Router-3-Pro
+name: OpenWrt-R4s
 
 on:
   repository_dispatch:
