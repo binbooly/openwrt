@@ -10,7 +10,7 @@
 #
 
 # 工作流名称，当前仓库内必须唯一。
-name: OpenWrt-HiWiFi.4
+name: OpenWrt-HiWiFi-4
 
 # 工作流触发器，可同时指定多个事件。更多事件介绍：https://docs.github.com/zh/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows。
 on:
