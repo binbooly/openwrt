@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 env:
-  REPO_URL: https://github.com/immortalwrt/immortalwrt
+  REPO_URL: https://github.com/coolsnowwolf/lede
   RESOURCE_DIR: /HiWiFi-1s
 
 jobs:
