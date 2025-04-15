@@ -50,4 +50,6 @@ jobs:
       - name: Configuration OpenWrt
         run: |
           mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
-          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && echo "AAAA"
+          if [ "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ]; then
+            echo "AAAA"
+          fi
