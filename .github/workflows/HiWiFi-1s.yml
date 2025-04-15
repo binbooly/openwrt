@@ -50,4 +50,4 @@ jobs:
       - name: Configuration OpenWrt
         run: |
           mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
-          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
+          [ -n "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ] && echo "AAAA"
