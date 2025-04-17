@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 env:
-  REPO_URL: https://github.com/Lienol/openwrt
+  REPO_URL: https://github.com/openwrt/openwrt
   RESOURCE_DIR: /HiWiFi-1s
 
 jobs:
