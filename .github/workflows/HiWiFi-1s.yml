@@ -74,7 +74,7 @@ jobs:
       - name: Download packages
         run: |
           cd /opt/openwrt
-          make -j$(nproc) download V=s
+          make -j$(nproc) download
 
       - name: Compile firmware
         id: compile
