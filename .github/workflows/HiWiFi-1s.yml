@@ -39,7 +39,8 @@ jobs:
 
       - name: Clone Source
         run: |
-          source {GITHUB_WORKSPACE}${RESOURCE_DIR}/env.sh
+          ll #{GITHUB_WORKSPACE}${RESOURCE_DIR}/env.sh
+          source ${GITHUB_WORKSPACE}${RESOURCE_DIR}/env.sh
           sudo mkdir /opt/openwrt
           sudo chown -R runner:runner /opt/openwrt
           git clone $REPOSITORY_URL /opt/openwrt
