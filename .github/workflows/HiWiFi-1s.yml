@@ -5,7 +5,6 @@ on:
   workflow_dispatch:
 
 env:
-  REPO_URL: https://github.com/Lienol/openwrt
   RESOURCE_DIR: /HiWiFi-1s
 
 jobs:
@@ -50,9 +49,10 @@ jobs:
 
       - name: Clone Source
         run: |
+          source {GITHUB_WORKSPACE}${RESOURCE_DIR}/env.sh
           sudo mkdir /opt/openwrt
           sudo chown -R runner:runner /opt/openwrt
-          git clone $REPO_URL /opt/openwrt
+          git clone $REPOSITORY_URL /opt/openwrt
 
       - name: Load custom feeds
         run: |
