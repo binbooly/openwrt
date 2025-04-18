@@ -73,13 +73,13 @@ jobs:
       - name: Download packages
         run: |
           cd /opt/openwrt
-          make -j$(nproc) download V=s
+          make -j1 download V=s
 
       - name: Compile firmware
         id: compile
         run: |
           cd /opt/openwrt
-          make -j$(nproc) || make -j1 V=s
+          make -j1 || make -j1 V=s
           echo "status=success" >> $GITHUB_OUTPUT
           echo "--------------------------"
           echo "Space usage:"
