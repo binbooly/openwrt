@@ -45,7 +45,7 @@ jobs:
           sudo -E timedatectl set-timezone "Asia/Shanghai"
 
       - name: Checkout OpenWrt
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Clone Source
         run: |
@@ -119,21 +119,21 @@ jobs:
           cp -rf $(find /opt/openwrt/bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") /opt/openwrt/artifact/buildinfo/
 
       - name: Upload buildinfo
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v8
         if: steps.compile.outputs.status == 'success'
         with:
           name: OpenWrt_buildinfo
           path: /opt/openwrt/artifact/buildinfo/
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v8
         if: steps.compile.outputs.status == 'success'
         with:
           name: OpenWrt_package
           path: /opt/openwrt/artifact/package/
 
       - name: Upload firmware
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v8
         if: steps.compile.outputs.status == 'success'
         with:
           name: OpenWrt_firmware
