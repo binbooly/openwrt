@@ -1,0 +1,151 @@
+#
+# 适用于极路由4(HC5692)。
+#
+# 本文件基于如下文件修改所得：
+# https://github.com/coolsnowwolf/lede/blob/master/.github/workflows/openwrt-ci.yml
+# https://github.com/P3TERX/Actions-OpenWrt/blob/main/.github/workflows/openwrt-builder.yml
+#
+# GitHub Actions 的工作流语法：
+# https://docs.github.com/zh/actions/writing-workflows/workflow-syntax-for-github-actions
+#
+
+# 工作流名称，当前仓库内必须唯一。
+name: OpenWrt-HiWiFi-4
+
+# 工作流触发器，可同时指定多个事件。更多事件介绍：https://docs.github.com/zh/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows。
+on:
+  # 当前工作流文件存在于默认分支上时才允许触发此事件。
+  repository_dispatch:
+  # 手动运行工作流程事件。
+  workflow_dispatch:
+
+# 为工作流内的所有作业步骤初始化全局环境变量，可在所有步骤内的脚本中访问。
+env:
+  # 创建环境变量脚本文件(env.sh)，软件源配置文件(feeds.conf.default)，编译配置文件(.config)，以及其它所需文件在仓库里的目录描述。
+  RESOURCE_DIR: /HiWiFi-4
+
+# 作业列表。一个工作流内可以有多个作业，多个作业默认并行运行。
+jobs:
+
+  build_openwrt:
+
+    name: Build OpenWrt Firmware
+
+    # 运行当前作业的计算机（操作系统）类型。
+    runs-on: ubuntu-22.04
+
+    # 一个作业可以有多个步骤，步骤会顺序执行，每个步骤都是独立进程。
+    steps:
+      - name: Check Server Performance
+        # 当前步骤内运行的脚本。
+        run: |
+          echo "-------------------------- CPU INFO --------------------------"
+          echo "CPU 物理数量：$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
+          echo "CPU 核心数量：$(nproc)"
+          echo -e "CPU 型号信息：$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
+          echo "-------------------------- MEMORY INFO --------------------------"
+          echo "已安装内存详细信息："
+          echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
+          echo "-------------------------- DISK INFO --------------------------"
+          echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
+
+      - name: Space cleanup and Initialization environment
+        # 为当前步骤的进程初始化环境变量，步骤完成后进程将退出，环境变量也同时清除。
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          docker images -q | xargs -r docker rmi
+          sudo -E rm -rf /usr/share/dotnet /etc/mysql /etc/php /etc/apt/sources.list.d /usr/local/lib/android
+          sudo -E apt-mark hold grub-efi-amd64-signed
+          sudo -E apt update
+          sudo -E apt -y purge azure-cli* docker* ghc* zulu* llvm* firefox google* dotnet* powershell* openjdk* mysql* php* mongodb* dotnet* snap*
+          sudo -E apt -y full-upgrade
+          sudo -E apt -y install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib gettext genisoimage git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool llvm lrzsz msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+          sudo -E systemctl daemon-reload
+          sudo -E apt -y autoremove --purge
+          sudo -E apt clean
+          sudo -E timedatectl set-timezone "Asia/Shanghai"
+
+      # 从 GitHub Marketplace 调用 v4 版本的 checkout Action 对当前仓库执行 checkout 操作，详见：https://github.com/marketplace/actions/checkout。
+      - name: Checkout OpenWrt
+        uses: actions/checkout@v4
+
+      # 下载 OpenWrt 源码。
+      - name: Clone Source
+        run: |
+          source ${GITHUB_WORKSPACE}${RESOURCE_DIR}/env.sh
+          sudo mkdir /opt/openwrt
+          sudo chown -R runner:runner /opt/openwrt
+          # $REPOSITORY_URL 变量在 env.sh 中被创建。
+          git clone $REPOSITORY_URL /opt/openwrt
+
+      # 添加软件源。
+      - name: Load custom feeds
+        run: |
+          [ -e ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default ] && mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default /opt/openwrt/feeds.conf.default
+
+      - name: Update feeds
+        run: |
+          /opt/openwrt/scripts/feeds update -a
+          /opt/openwrt/scripts/feeds install -a
+
+      # 编译配置。
+      - name: Configuration OpenWrt
+        run: |
+          mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
+          # 如果还有其它文件，则保持目录结构全部复制之。ls -A 列出所有目录和文件，-n 测试字符串是否非空。
+          if [ "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ]; then
+            cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
+          fi
+
+      - name: Download packages
+        run: |
+          cd /opt/openwrt
+          make -j$(nproc) download V=s
+
+      - name: Compile firmware
+        id: compile
+        run: |
+          cd /opt/openwrt
+          make -j$(nproc) || make -j1 V=s
+          # 向 $GITHUB_OUTPUT 中写入可以创建当前步骤内的变量，通过 steps.{步骤 ID}.outputs.{变量名} 的 Workflow 语法访问。向 $GITHUB_ENV 中写入可以创建全局环境变量，通过 env.{变量名} 的 Workflow 语法访问。
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "--------------------------"
+          echo "Space usage:"
+          echo "--------------------------"
+          df -h
+          echo "--------------------------"
+          du -h --max-depth=1 /opt/openwrt/ --exclude=build_dir --exclude=bin
+          du -h --max-depth=1 /opt/openwrt/build_dir
+          du -h --max-depth=1 /opt/openwrt/bin
+
+      - name: Prepare artifact
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          mkdir -p /opt/openwrt/artifact/package
+          mkdir -p /opt/openwrt/artifact/buildinfo
+          rm -rf $(find /opt/openwrt/bin/targets/ -type d -name "packages")
+          cp -rf $(find /opt/openwrt/bin/packages/ -type f -name "*.ipk" -o -name "*.apk") /opt/openwrt/artifact/package/
+          cp -rf $(find /opt/openwrt/bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") /opt/openwrt/artifact/buildinfo/
+
+      # 从 GitHub Marketplace 调用 v4 版本的 upload-artifact Action，将指定文件上传至成品列表中供下载，详见：https://github.com/marketplace/actions/upload-a-build-artifact。
+      - name: Upload buildinfo
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
+        with:
+          name: OpenWrt_buildinfo
+          path: /opt/openwrt/artifact/buildinfo/
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
+        with:
+          name: OpenWrt_package
+          path: /opt/openwrt/artifact/package/
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        if: steps.compile.outputs.status == 'success'
+        with:
+          name: OpenWrt_firmware
+          path: /opt/openwrt/bin/targets/
