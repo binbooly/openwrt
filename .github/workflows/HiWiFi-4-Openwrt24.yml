@@ -10,7 +10,7 @@
 #
 
 # 工作流名称，当前仓库内必须唯一。
-name: OpenWrt-HiWiFi-4
+name: OpenWrt-HiWiFi-4-Openwrt24
 
 # 工作流触发器，可同时指定多个事件。更多事件介绍：https://docs.github.com/zh/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows。
 on:
@@ -22,7 +22,7 @@ on:
 # 为工作流内的所有作业步骤初始化全局环境变量，可在所有步骤内的脚本中访问。
 env:
   # 创建环境变量脚本文件(env.sh)，软件源配置文件(feeds.conf.default)，编译配置文件(.config)，以及其它所需文件在仓库里的目录描述。
-  RESOURCE_DIR: /HiWiFi-4
+  RESOURCE_DIR: /HiWiFi-4-Openwrt24
 
 # 作业列表。一个工作流内可以有多个作业，多个作业默认并行运行。
 jobs:
