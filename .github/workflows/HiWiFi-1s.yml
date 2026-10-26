@@ -1,11 +1,11 @@
-name: OpenWrt-HiWiFi-1s
+name: HiWiFi-1s
 
 on:
   repository_dispatch:
   workflow_dispatch:
 
 env:
-  RESOURCE_DIR: /HiWiFi-1s
+  RESOURCE_DIR: /${{ github.workflow }}
 
 jobs:
 
