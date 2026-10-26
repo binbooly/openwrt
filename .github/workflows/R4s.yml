@@ -1,11 +1,11 @@
-name: OpenWrt-R4s
+name: R4s
 
 on:
   repository_dispatch:
   workflow_dispatch:
 
 env:
-  RESOURCE_DIR: /R4s
+  RESOURCE_DIR: /${{ github.workflow }}
 
 jobs:
 
