@@ -1,11 +1,11 @@
-name: OpenWrt-Mi-Router-3-Pro
+name: Mi-Router-3-Pro
 
 on:
   repository_dispatch:
   workflow_dispatch:
 
 env:
-  RESOURCE_DIR: /Mi-Router-3-Pro
+  RESOURCE_DIR: /${{ github.workflow }}
 
 jobs:
 
