@@ -60,8 +60,6 @@ jobs:
 
       - name: Update feeds
         run: |
-          curl -sSL https://raw.githubusercontent.com/chenmozhijin/turboacc/luci/add_turboacc.sh -o add_turboacc.sh
-          bash add_turboacc.sh
           /opt/openwrt/scripts/feeds update -a
           /opt/openwrt/scripts/feeds install -a
 
@@ -71,25 +69,6 @@ jobs:
           if [ "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ]; then
             cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
           fi
-
-      - name: Diagnose opkg source hash
-        run: |
-          cd /opt/openwrt
-
-          echo "========== OpenWrt revision =========="
-          git log -1 --format='%H %s'
-          git remote -v
-
-          echo "========== opkg Makefile =========="
-          grep -nE 'PKG_SOURCE_DATE|PKG_SOURCE_VERSION|PKG_SOURCE_PROTO|PKG_MIRROR_HASH|PKG_SOURCE_HASH' \
-            package/system/opkg/Makefile || true
-
-          echo "========== Local modifications =========="
-          git status --short
-          git diff -- package/system/opkg/Makefile
-
-          echo "========== Git attributes =========="
-          git check-attr -a -- package/system/opkg/Makefile
 
       - name: Download packages
         run: |
