@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 env:
-  RESOURCE_DIR: /${{ github.workflow }}
+  RESOURCE_DIR: /${{github.workflow}}
 
 jobs:
 
