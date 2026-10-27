@@ -1,1 +1,1 @@
-export REPOSITORY_URL=https://github.com/Lienol/openwrt
+export REPOSITORY_URL=https://github.com/coolsnowwolf/lede
