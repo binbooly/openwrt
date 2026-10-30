@@ -113,7 +113,7 @@ jobs:
 
           ls -lh staging_dir/host/bin/zstd
 
-            - name: Diagnose opkg archive
+      - name: Diagnose opkg archive
         run: |
           cd /opt/openwrt
 
