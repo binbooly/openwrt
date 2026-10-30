@@ -5,11 +5,14 @@ on:
   workflow_dispatch:
 
 env:
-  RESOURCE_DIR: /${{ github.workflow }}
+  RESOURCE_DIR: /${{github.workflow}}
 
 jobs:
+
   build_openwrt:
+
     name: Build OpenWrt Firmware
+
     runs-on: ubuntu-22.04
 
     steps:
@@ -19,11 +22,9 @@ jobs:
           echo "CPU 物理数量：$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
           echo "CPU 核心数量：$(nproc)"
           echo -e "CPU 型号信息：$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
-
           echo "-------------------------- MEMORY INFO --------------------------"
           echo "已安装内存详细信息："
           echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
-
           echo "-------------------------- DISK INFO --------------------------"
           echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
@@ -32,34 +33,15 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           docker images -q | xargs -r docker rmi
-
           sudo -E rm -rf /usr/share/dotnet /etc/mysql /etc/php /etc/apt/sources.list.d /usr/local/lib/android
-
           sudo -E apt-mark hold grub-efi-amd64-signed
           sudo -E apt update
-
-          sudo -E apt -y purge azure-cli* docker* ghc* zulu* llvm* firefox google* dotnet* powershell* openjdk* mysql* php* mongodb* snap*
-
+          sudo -E apt -y purge azure-cli* docker* ghc* zulu* llvm* firefox google* dotnet* powershell* openjdk* mysql* php* mongodb* dotnet* snap*
           sudo -E apt -y full-upgrade
-
-          sudo -E apt -y install \
-            ack antlr3 asciidoc autoconf automake autopoint binutils bison \
-            build-essential bzip2 ccache clang cmake cpio curl \
-            device-tree-compiler flex gawk gcc-multilib g++-multilib \
-            gettext genisoimage git gperf haveged help2man intltool \
-            libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev \
-            libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
-            libncurses5-dev libncursesw5-dev libpython3-dev \
-            libreadline-dev libssl-dev libtool llvm lrzsz msmtp \
-            ninja-build p7zip p7zip-full patch pkgconf python3 \
-            python3-pyelftools python3-setuptools qemu-utils rsync \
-            scons squashfs-tools subversion swig texinfo uglifyjs \
-            upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
-
+          sudo -E apt -y install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib gettext genisoimage git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool llvm lrzsz msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
           sudo -E systemctl daemon-reload
           sudo -E apt -y autoremove --purge
           sudo -E apt clean
-
           sudo -E timedatectl set-timezone "Asia/Shanghai"
 
       - name: Checkout OpenWrt
@@ -67,267 +49,43 @@ jobs:
 
       - name: Clone Source
         run: |
-          source "${GITHUB_WORKSPACE}${RESOURCE_DIR}/env.sh"
-
-          sudo mkdir -p /opt/openwrt
+          source ${GITHUB_WORKSPACE}${RESOURCE_DIR}/env.sh
+          sudo mkdir /opt/openwrt
           sudo chown -R runner:runner /opt/openwrt
-
           eval "git clone $REPOSITORY_URL /opt/openwrt"
 
       - name: Load custom feeds
         run: |
-          [ -e "${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default" ] && \
-            mv -f "${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default" /opt/openwrt/feeds.conf.default
+          [ -e ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default ] && mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default /opt/openwrt/feeds.conf.default
 
       - name: Update feeds
         run: |
-          cd /opt/openwrt
-
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          /opt/openwrt/scripts/feeds update -a
+          /opt/openwrt/scripts/feeds install -a
 
       - name: Configuration OpenWrt
         run: |
-          cd /opt/openwrt
-
-          cp -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config .config
-
-          cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* ./
-
-          make defconfig
-
-      # 关键修复：先编译 OpenWrt 自己的 host zstd
-      - name: Compile host zstd
-        run: |
-          cd /opt/openwrt
-
-          echo "========== Compile OpenWrt host zstd =========="
-
-          make tools/zstd/compile V=s
-
-          echo "========== Verify host zstd =========="
-
-          test -x staging_dir/host/bin/zstd
-
-          staging_dir/host/bin/zstd --version
-
-          echo "========== Host zstd path =========="
-
-          ls -lh staging_dir/host/bin/zstd
-
-      - name: Diagnose opkg archive
-        run: |
-          set -e
-
-          cd /opt/openwrt
-
-          HOST_BIN="$PWD/staging_dir/host/bin"
-          TMP_DIR="$(mktemp -d)"
-
-          export PATH="$HOST_BIN:$PATH"
-
-          REPO="https://git.openwrt.org/project/opkg-lede.git"
-          COMMIT="80503d94e356476250adaf1f669ee955ec26de76"
-          NAME="opkg-2025.11.05~80503d94"
-
-          echo "========== Tool versions =========="
-
-          echo "HOST GIT:"
-          "$HOST_BIN/git" --version
-
-          echo "HOST TAR:"
-          "$HOST_BIN/tar" --version | head -1
-
-          echo "HOST ZSTD:"
-          "$HOST_BIN/zstd" --version
-
-          echo "SYSTEM GIT:"
-          /usr/bin/git --version
-
-          echo "SYSTEM TAR:"
-          /usr/bin/tar --version | head -1
-
-          echo "SYSTEM ZSTD:"
-          /usr/bin/zstd --version
-
-          cd "$TMP_DIR"
-
-          echo "========== Clone source =========="
-
-          git clone "$REPO" "$NAME"
-
-          cd "$NAME"
-
-          git checkout "$COMMIT"
-
-          export TAR_TIMESTAMP="$(git log -1 --no-show-signature --format='@%ct')"
-
-          git config core.abbrev 8
-
-          echo "========== Generate git archive =========="
-
-          git archive --format=tar HEAD --output="../$NAME.tar.git"
-
-          echo "========== Append git metadata =========="
-
-          tar --numeric-owner --owner=0 --group=0 \
-            --ignore-failed-read \
-            -C "$TMP_DIR/$NAME" \
-            -f "$TMP_DIR/$NAME.tar.git" \
-            -r .git .gitmodules 2>/dev/null
-
-          echo "========== Verify archive metadata =========="
-
-          tar -tf "$TMP_DIR/$NAME.tar.git" | grep -E '(^|/)\.git(/|$)' | head
-
-          cd "$TMP_DIR"
-
-          rm -rf "$NAME"
-          mkdir "$NAME"
-
-          tar -C "$NAME" -xf "$NAME.tar.git"
-
-          echo "========== Verify restored git =========="
-
-          test -d "$NAME/.git"
-
-          cd "$NAME"
-
-          git submodule update --init --recursive --
-
-          rm -rf .git .gitmodules
-
-          cd "$TMP_DIR"
-
-          echo "========== Generate raw tar =========="
-
-          tar --numeric-owner --owner=0 --group=0 --mode=a-s \
-            --sort=name ${TAR_TIMESTAMP:+--mtime="$TAR_TIMESTAMP"} \
-            -c "$NAME" > source.tar
-
-          sha256sum source.tar
-
-          echo "========== Host zstd =========="
-
-          "$HOST_BIN/zstd" -T0 --ultra -20 -c \
-            source.tar > host.tar.zst
-
-          sha256sum host.tar.zst
-
-          echo "========== System zstd =========="
-
-          /usr/bin/zstd -T0 --ultra -20 -c \
-            source.tar > system.tar.zst
-
-          sha256sum system.tar.zst
-
-          echo "========== Compare =========="
-
-          cmp host.tar.zst system.tar.zst \
-            && echo "ZSTD OUTPUT IDENTICAL" \
-            || echo "ZSTD OUTPUT DIFFERENT"
-
-          echo "========== Expected SHA256 =========="
-
-          echo "41fb2c79ce6014e28f7dd0cd8c65efe803986278f2587d1d4681883d8847d87c"
-
-          echo "========== ZSTD single-thread test =========="
-          
-          "$HOST_BIN/zstd" -T1 --ultra -20 -c source.tar > single.tar.zst
-          
-          sha256sum single.tar.zst
-          
-          echo "========== ZSTD multi-thread test =========="
-          
-          "$HOST_BIN/zstd" -T0 --ultra -20 -c source.tar > multi.tar.zst
-          
-          sha256sum multi.tar.zst
-          
-          echo "========== CPU information =========="
-          
-          nproc
-
-          echo "========== Archive timestamp =========="
-          
-          echo "========== Archive timestamp =========="
-          
-          REPO_DIR="$TMP_DIR/$NAME"
-          
-          git -C "$REPO_DIR" rev-parse HEAD
-          
-          TAR_TIMESTAMP=$(git -C "$REPO_DIR" log -1 --no-show-signature --format='@%ct')
-          
-          echo "TAR_TIMESTAMP=$TAR_TIMESTAMP"
-
-          echo "========== Tar archive options =========="
-
-          tar --version
-          
-          echo "========== Archive with OpenWrt options =========="
-          
-          tar \
-            --numeric-owner \
-            --owner=0 \
-            --group=0 \
-            --mode=a-s \
-            --sort=name \
-            --mtime="$TAR_TIMESTAMP" \
-            -cf source-openwrt.tar \
-            "$NAME"
-          
-          sha256sum source-openwrt.tar
-          
-          echo "========== Archive without timestamp =========="
-          
-          tar \
-            --numeric-owner \
-            --owner=0 \
-            --group=0 \
-            --mode=a-s \
-            --sort=name \
-            -cf source-no-time.tar \
-            "$NAME"
-          
-          sha256sum source-no-time.tar
-
-          echo "========== Git commit timestamp =========="
-
-          git -C "$REPO_DIR" show -s \
-            --format="Commit: %H%nDate: %cI%nTimestamp: %ct"
-          
-          echo "========== Git attributes =========="
-          
-          git -C "$REPO_DIR" check-attr -a -- .
-          
-          echo "========== Git archive configuration =========="
-          
-          git -C "$REPO_DIR" config --list --show-origin
+          mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
+          if [ "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ]; then
+            cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
+          fi
 
       - name: Download packages
         run: |
           cd /opt/openwrt
-
           make -j$(nproc) download V=s
 
       - name: Compile firmware
         id: compile
         run: |
           cd /opt/openwrt
-
-          echo "========== Compile OpenWrt =========="
-
-          make -j1 V=s 2>&1 | tee build.log
-
+          make -j$(nproc) || make -j1 V=s
           echo "status=success" >> $GITHUB_OUTPUT
-
           echo "--------------------------"
           echo "Space usage:"
           echo "--------------------------"
-
           df -h
-
           echo "--------------------------"
-
           du -h --max-depth=1 /opt/openwrt/ --exclude=build_dir --exclude=bin
           du -h --max-depth=1 /opt/openwrt/build_dir
           du -h --max-depth=1 /opt/openwrt/bin
@@ -337,14 +95,9 @@ jobs:
         run: |
           mkdir -p /opt/openwrt/artifact/package
           mkdir -p /opt/openwrt/artifact/buildinfo
-
-          find /opt/openwrt/bin/targets/ -type d -name "packages" -exec rm -rf {} +
-
-          find /opt/openwrt/bin/packages/ -type f \( -name "*.ipk" -o -name "*.apk" \) \
-            -exec cp -t /opt/openwrt/artifact/package/ {} +
-
-          find /opt/openwrt/bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) \
-            -exec cp -t /opt/openwrt/artifact/buildinfo/ {} +
+          rm -rf $(find /opt/openwrt/bin/targets/ -type d -name "packages")
+          cp -rf $(find /opt/openwrt/bin/packages/ -type f -name "*.ipk" -o -name "*.apk") /opt/openwrt/artifact/package/
+          cp -rf $(find /opt/openwrt/bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") /opt/openwrt/artifact/buildinfo/
 
       - name: Upload buildinfo
         uses: actions/upload-artifact@v7
