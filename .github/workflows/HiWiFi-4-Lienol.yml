@@ -5,14 +5,11 @@ on:
   workflow_dispatch:
 
 env:
-  RESOURCE_DIR: /${{github.workflow}}
+  RESOURCE_DIR: /${{ github.workflow }}
 
 jobs:
-
   build_openwrt:
-
     name: Build OpenWrt Firmware
-
     runs-on: ubuntu-22.04
 
     steps:
@@ -22,9 +19,11 @@ jobs:
           echo "CPU 物理数量：$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
           echo "CPU 核心数量：$(nproc)"
           echo -e "CPU 型号信息：$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
+
           echo "-------------------------- MEMORY INFO --------------------------"
           echo "已安装内存详细信息："
           echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
+
           echo "-------------------------- DISK INFO --------------------------"
           echo "硬盘数量：$(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
@@ -33,15 +32,34 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           docker images -q | xargs -r docker rmi
+
           sudo -E rm -rf /usr/share/dotnet /etc/mysql /etc/php /etc/apt/sources.list.d /usr/local/lib/android
+
           sudo -E apt-mark hold grub-efi-amd64-signed
           sudo -E apt update
-          sudo -E apt -y purge azure-cli* docker* ghc* zulu* llvm* firefox google* dotnet* powershell* openjdk* mysql* php* mongodb* dotnet* snap*
+
+          sudo -E apt -y purge azure-cli* docker* ghc* zulu* llvm* firefox google* dotnet* powershell* openjdk* mysql* php* mongodb* snap*
+
           sudo -E apt -y full-upgrade
-          sudo -E apt -y install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib gettext genisoimage git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool llvm lrzsz msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+
+          sudo -E apt -y install \
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison \
+            build-essential bzip2 ccache clang cmake cpio curl \
+            device-tree-compiler flex gawk gcc-multilib g++-multilib \
+            gettext genisoimage git gperf haveged help2man intltool \
+            libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev \
+            libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
+            libncurses5-dev libncursesw5-dev libpython3-dev \
+            libreadline-dev libssl-dev libtool llvm lrzsz msmtp \
+            ninja-build p7zip p7zip-full patch pkgconf python3 \
+            python3-pyelftools python3-setuptools qemu-utils rsync \
+            scons squashfs-tools subversion swig texinfo uglifyjs \
+            upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
+
           sudo -E systemctl daemon-reload
           sudo -E apt -y autoremove --purge
           sudo -E apt clean
+
           sudo -E timedatectl set-timezone "Asia/Shanghai"
 
       - name: Checkout OpenWrt
@@ -49,56 +67,96 @@ jobs:
 
       - name: Clone Source
         run: |
-          source ${GITHUB_WORKSPACE}${RESOURCE_DIR}/env.sh
-          sudo mkdir /opt/openwrt
+          source "${GITHUB_WORKSPACE}${RESOURCE_DIR}/env.sh"
+
+          sudo mkdir -p /opt/openwrt
           sudo chown -R runner:runner /opt/openwrt
+
           eval "git clone $REPOSITORY_URL /opt/openwrt"
 
       - name: Load custom feeds
         run: |
-          [ -e ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default ] && mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default /opt/openwrt/feeds.conf.default
+          [ -e "${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default" ] && \
+            mv -f "${GITHUB_WORKSPACE}${RESOURCE_DIR}/feeds.conf.default" /opt/openwrt/feeds.conf.default
 
       - name: Update feeds
         run: |
-          /opt/openwrt/scripts/feeds update -a
-          /opt/openwrt/scripts/feeds install -a
+          cd /opt/openwrt
+
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
       - name: Configuration OpenWrt
         run: |
-          mv -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config /opt/openwrt/.config
-          if [ "$(ls -A ${GITHUB_WORKSPACE}${RESOURCE_DIR})" ]; then
-            cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
+          mv -f "${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config" /opt/openwrt/.config
+
+          if [ "$(ls -A "${GITHUB_WORKSPACE}${RESOURCE_DIR}")" ]; then
+            cp -rf "${GITHUB_WORKSPACE}${RESOURCE_DIR}"/* /opt/openwrt/
           fi
 
+      # 关键修复：先编译 OpenWrt 自己的 host zstd
+      - name: Compile host zstd
+        run: |
+          cd /opt/openwrt
+
+          echo "========== Compile OpenWrt host zstd =========="
+
+          make tools/zstd/compile V=s
+
+          echo "========== Verify host zstd =========="
+
+          test -x staging_dir/host/bin/zstd
+
+          staging_dir/host/bin/zstd --version
+
+          echo "========== Host zstd path =========="
+
+          ls -lh staging_dir/host/bin/zstd
+
+      # 下载 opkg 时强制优先使用 OpenWrt host zstd
       - name: Diagnose and Download opkg
         run: |
           cd /opt/openwrt
 
           echo "========== OpenWrt Repository =========="
+
           git remote -v
           git rev-parse HEAD
           git status --short
 
           echo "========== Tool Versions =========="
+
           git --version
           tar --version | head -1
           zstd --version
 
+          echo "========== OpenWrt Host zstd =========="
+
+          export PATH="$PWD/staging_dir/host/bin:$PATH"
+
+          which zstd
+          zstd --version
+
           echo "========== opkg Makefile =========="
+
           grep -E 'PKG_SOURCE_DATE|PKG_SOURCE_VERSION|PKG_MIRROR_HASH' \
             package/system/opkg/Makefile
 
-          echo "========== Check Local Changes =========="
-          git diff -- package/system/opkg/Makefile
-
           echo "========== Clean opkg Download =========="
+
           rm -f dl/opkg-2025.11.05~80503d94.tar.zst*
 
           echo "========== Download opkg =========="
+
           make package/system/opkg/download V=s
 
           echo "========== Verify SHA256 =========="
+
           sha256sum dl/opkg-2025.11.05~80503d94.tar.zst
+
+          echo "========== Verify file type =========="
+
+          file dl/opkg-2025.11.05~80503d94.tar.zst
 
       - name: Download packages
         run: |
@@ -110,13 +168,19 @@ jobs:
         id: compile
         run: |
           cd /opt/openwrt
+
           make -j$(nproc) || make -j1 V=s
+
           echo "status=success" >> $GITHUB_OUTPUT
+
           echo "--------------------------"
           echo "Space usage:"
           echo "--------------------------"
+
           df -h
+
           echo "--------------------------"
+
           du -h --max-depth=1 /opt/openwrt/ --exclude=build_dir --exclude=bin
           du -h --max-depth=1 /opt/openwrt/build_dir
           du -h --max-depth=1 /opt/openwrt/bin
@@ -126,9 +190,14 @@ jobs:
         run: |
           mkdir -p /opt/openwrt/artifact/package
           mkdir -p /opt/openwrt/artifact/buildinfo
-          rm -rf $(find /opt/openwrt/bin/targets/ -type d -name "packages")
-          cp -rf $(find /opt/openwrt/bin/packages/ -type f -name "*.ipk" -o -name "*.apk") /opt/openwrt/artifact/package/
-          cp -rf $(find /opt/openwrt/bin/targets/ -type f -name "*.buildinfo" -o -name "*.manifest") /opt/openwrt/artifact/buildinfo/
+
+          find /opt/openwrt/bin/targets/ -type d -name "packages" -exec rm -rf {} +
+
+          find /opt/openwrt/bin/packages/ -type f \( -name "*.ipk" -o -name "*.apk" \) \
+            -exec cp -t /opt/openwrt/artifact/package/ {} +
+
+          find /opt/openwrt/bin/targets/ -type f \( -name "*.buildinfo" -o -name "*.manifest" \) \
+            -exec cp -t /opt/openwrt/artifact/buildinfo/ {} +
 
       - name: Upload buildinfo
         uses: actions/upload-artifact@v7
