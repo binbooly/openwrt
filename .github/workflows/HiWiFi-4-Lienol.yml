@@ -88,11 +88,13 @@ jobs:
 
       - name: Configuration OpenWrt
         run: |
-          mv -f "${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config" /opt/openwrt/.config
+          cd /opt/openwrt
 
-          if [ "$(ls -A "${GITHUB_WORKSPACE}${RESOURCE_DIR}")" ]; then
-            cp -rf "${GITHUB_WORKSPACE}${RESOURCE_DIR}"/* /opt/openwrt/
-          fi
+          cp -f ${GITHUB_WORKSPACE}${RESOURCE_DIR}/.config .config
+
+          cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* ./
+
+          make defconfig
 
       # 关键修复：先编译 OpenWrt 自己的 host zstd
       - name: Compile host zstd
