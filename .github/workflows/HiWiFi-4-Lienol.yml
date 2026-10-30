@@ -249,8 +249,59 @@ jobs:
 
           echo "========== Archive timestamp =========="
           
-          git -C "$TMP_DIR/$NAME" log -1 --format='%ct %cI'
+          echo "========== Archive timestamp =========="
+          
+          REPO_DIR="$TMP_DIR/$NAME"
+          
+          git -C "$REPO_DIR" rev-parse HEAD
+          
+          TAR_TIMESTAMP=$(git -C "$REPO_DIR" log -1 --no-show-signature --format='@%ct')
+          
           echo "TAR_TIMESTAMP=$TAR_TIMESTAMP"
+
+          echo "========== Tar archive options =========="
+
+          tar --version
+          
+          echo "========== Archive with OpenWrt options =========="
+          
+          tar \
+            --numeric-owner \
+            --owner=0 \
+            --group=0 \
+            --mode=a-s \
+            --sort=name \
+            --mtime="$TAR_TIMESTAMP" \
+            -cf source-openwrt.tar \
+            "$NAME"
+          
+          sha256sum source-openwrt.tar
+          
+          echo "========== Archive without timestamp =========="
+          
+          tar \
+            --numeric-owner \
+            --owner=0 \
+            --group=0 \
+            --mode=a-s \
+            --sort=name \
+            -cf source-no-time.tar \
+            "$NAME"
+          
+          sha256sum source-no-time.tar
+
+          echo "========== Git commit timestamp =========="
+
+          git -C "$REPO_DIR" show -s \
+            --format="Commit: %H%nDate: %cI%nTimestamp: %ct"
+          
+          echo "========== Git attributes =========="
+          
+          git -C "$REPO_DIR" check-attr -a -- .
+          
+          echo "========== Git archive configuration =========="
+          
+          git -C "$REPO_DIR" config --list --show-origin
 
       - name: Download packages
         run: |
