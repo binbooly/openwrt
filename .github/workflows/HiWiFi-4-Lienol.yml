@@ -113,50 +113,92 @@ jobs:
 
           ls -lh staging_dir/host/bin/zstd
 
-      # 下载 opkg 时强制优先使用 OpenWrt host zstd
-      - name: Diagnose and Download opkg
+            - name: Diagnose opkg archive
         run: |
           cd /opt/openwrt
 
-          echo "========== OpenWrt Repository =========="
-
-          git remote -v
-          git rev-parse HEAD
-          git status --short
-
-          echo "========== Tool Versions =========="
-
-          git --version
-          tar --version | head -1
-          zstd --version
-
-          echo "========== OpenWrt Host zstd =========="
+          set -e
 
           export PATH="$PWD/staging_dir/host/bin:$PATH"
 
-          which zstd
-          zstd --version
+          TMP_DIR="$(mktemp -d)"
+          cd "$TMP_DIR"
 
-          echo "========== opkg Makefile =========="
+          REPO="https://git.openwrt.org/project/opkg-lede.git"
+          COMMIT="80503d94e356476250adaf1f669ee955ec26de76"
+          NAME="opkg-2025.11.05~80503d94"
 
-          grep -E 'PKG_SOURCE_DATE|PKG_SOURCE_VERSION|PKG_MIRROR_HASH' \
-            package/system/opkg/Makefile
+          echo "========== Tool paths =========="
 
-          echo "========== Clean opkg Download =========="
+          command -v git
+          command -v tar
+          command -v zstd
+          /usr/bin/zstd --version
+          "$GITHUB_WORKSPACE"/../none 2>/dev/null || true
 
-          rm -f dl/opkg-2025.11.05~80503d94.tar.zst*
+          echo "========== Clone source =========="
 
-          echo "========== Download opkg =========="
+          git clone "$REPO" "$NAME"
 
-          make package/system/opkg/download V=s
+          cd "$NAME"
+          git checkout "$COMMIT"
 
-          echo "========== Verify SHA256 =========="
+          export TAR_TIMESTAMP="$(git log -1 --no-show-signature --format='@%ct')"
 
-          sha256sum dl/opkg-2025.11.05~80503d94.tar.zst
+          git config core.abbrev 8
 
-          echo "========== Verify file type =========="
+          echo "========== Generate git archive =========="
 
-          file dl/opkg-2025.11.05~80503d94.tar.zst
+          git archive --format=tar HEAD --output="../$NAME.tar.git"
+
+          tar --numeric-owner --owner=0 --group=0 \
+            --ignore-failed-read \
+            -C "$NAME" -f "../$NAME.tar.git" -r .git .gitmodules 2>/dev/null || true
+
+          cd "$TMP_DIR"
+
+          rm -rf "$NAME"
+          mkdir "$NAME"
+
+          tar -C "$NAME" -xf "$NAME.tar.git"
+
+          cd "$NAME"
+          git submodule update --init --recursive --
+
+          rm -rf .git .gitmodules
+
+          cd "$TMP_DIR"
+
+          echo "========== Generate raw tar =========="
+
+          tar --numeric-owner --owner=0 --group=0 --mode=a-s \
+            --sort=name ${TAR_TIMESTAMP:+--mtime="$TAR_TIMESTAMP"} \
+            -c "$NAME" > source.tar
+
+          sha256sum source.tar
+
+          echo "========== Compress with OpenWrt zstd =========="
+
+          "$GITHUB_WORKSPACE"/../none 2>/dev/null || true
+
+          /opt/openwrt/staging_dir/host/bin/zstd \
+            -T0 --ultra -20 -c source.tar > host.tar.zst
+
+          sha256sum host.tar.zst
+
+          echo "========== Compress with system zstd =========="
+
+          /usr/bin/zstd -T0 --ultra -20 -c source.tar > system.tar.zst
+
+          sha256sum system.tar.zst
+
+          echo "========== Compare =========="
+
+          cmp host.tar.zst system.tar.zst && echo "ZSTD OUTPUT IDENTICAL" || echo "ZSTD OUTPUT DIFFERENT"
+
+          echo "========== Expected hash =========="
+
+          echo "41fb2c79ce6014e28f7dd0cd8c65efe803986278f2587d1d4681883d8847d87c"
 
       - name: Download packages
         run: |
