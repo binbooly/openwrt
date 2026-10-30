@@ -70,35 +70,35 @@ jobs:
             cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
           fi
 
-      - name: Clean opkg download cache
+      - name: Diagnose and Download opkg
         run: |
           cd /opt/openwrt
 
-          echo "========== Clean opkg cache =========="
+          echo "========== OpenWrt Repository =========="
+          git remote -v
+          git rev-parse HEAD
+          git status --short
 
-          rm -f dl/opkg-2025.11.05~80503d94.tar.zst
-          rm -f dl/opkg-2025.11.05~80503d94.tar.zst.*
+          echo "========== Tool Versions =========="
+          git --version
+          tar --version | head -1
+          zstd --version
 
-          echo "========== Check opkg Makefile =========="
-
+          echo "========== opkg Makefile =========="
           grep -E 'PKG_SOURCE_DATE|PKG_SOURCE_VERSION|PKG_MIRROR_HASH' \
             package/system/opkg/Makefile
 
-      - name: Download opkg source
-        run: |
-          cd /opt/openwrt
+          echo "========== Check Local Changes =========="
+          git diff -- package/system/opkg/Makefile
+
+          echo "========== Clean opkg Download =========="
+          rm -f dl/opkg-2025.11.05~80503d94.tar.zst*
 
           echo "========== Download opkg =========="
-
           make package/system/opkg/download V=s
 
           echo "========== Verify SHA256 =========="
-
           sha256sum dl/opkg-2025.11.05~80503d94.tar.zst
-
-          echo "========== Verify file type =========="
-
-          file dl/opkg-2025.11.05~80503d94.tar.zst
 
       - name: Download packages
         run: |
