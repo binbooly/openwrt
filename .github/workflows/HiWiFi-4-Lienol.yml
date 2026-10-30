@@ -229,6 +229,27 @@ jobs:
 
           echo "41fb2c79ce6014e28f7dd0cd8c65efe803986278f2587d1d4681883d8847d87c"
 
+          echo "========== ZSTD single-thread test =========="
+          
+          "$HOST_BIN/zstd" -T1 --ultra -20 -c source.tar > single.tar.zst
+          
+          sha256sum single.tar.zst
+          
+          echo "========== ZSTD multi-thread test =========="
+          
+          "$HOST_BIN/zstd" -T0 --ultra -20 -c source.tar > multi.tar.zst
+          
+          sha256sum multi.tar.zst
+          
+          echo "========== CPU information =========="
+          
+          nproc
+
+          echo "========== Archive timestamp =========="
+          
+          git -C "$TMP_DIR/$NAME" log -1 --format='%ct %cI'
+          echo "TAR_TIMESTAMP=$TAR_TIMESTAMP"
+
       - name: Download packages
         run: |
           cd /opt/openwrt
