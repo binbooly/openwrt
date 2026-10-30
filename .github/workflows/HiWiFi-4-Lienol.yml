@@ -115,32 +115,47 @@ jobs:
 
       - name: Diagnose opkg archive
         run: |
-          cd /opt/openwrt
-
           set -e
 
-          export PATH="$PWD/staging_dir/host/bin:$PATH"
+          cd /opt/openwrt
 
+          HOST_BIN="$PWD/staging_dir/host/bin"
           TMP_DIR="$(mktemp -d)"
-          cd "$TMP_DIR"
+
+          export PATH="$HOST_BIN:$PATH"
 
           REPO="https://git.openwrt.org/project/opkg-lede.git"
           COMMIT="80503d94e356476250adaf1f669ee955ec26de76"
           NAME="opkg-2025.11.05~80503d94"
 
-          echo "========== Tool paths =========="
+          echo "========== Tool versions =========="
 
-          command -v git
-          command -v tar
-          command -v zstd
+          echo "HOST GIT:"
+          "$HOST_BIN/git" --version
+
+          echo "HOST TAR:"
+          "$HOST_BIN/tar" --version | head -1
+
+          echo "HOST ZSTD:"
+          "$HOST_BIN/zstd" --version
+
+          echo "SYSTEM GIT:"
+          /usr/bin/git --version
+
+          echo "SYSTEM TAR:"
+          /usr/bin/tar --version | head -1
+
+          echo "SYSTEM ZSTD:"
           /usr/bin/zstd --version
-          "$GITHUB_WORKSPACE"/../none 2>/dev/null || true
+
+          cd "$TMP_DIR"
 
           echo "========== Clone source =========="
 
           git clone "$REPO" "$NAME"
 
           cd "$NAME"
+
           git checkout "$COMMIT"
 
           export TAR_TIMESTAMP="$(git log -1 --no-show-signature --format='@%ct')"
@@ -151,9 +166,17 @@ jobs:
 
           git archive --format=tar HEAD --output="../$NAME.tar.git"
 
+          echo "========== Append git metadata =========="
+
           tar --numeric-owner --owner=0 --group=0 \
             --ignore-failed-read \
-            -C "$NAME" -f "../$NAME.tar.git" -r .git .gitmodules 2>/dev/null || true
+            -C "$TMP_DIR/$NAME" \
+            -f "$TMP_DIR/$NAME.tar.git" \
+            -r .git .gitmodules 2>/dev/null
+
+          echo "========== Verify archive metadata =========="
+
+          tar -tf "$TMP_DIR/$NAME.tar.git" | grep -E '(^|/)\.git(/|$)' | head
 
           cd "$TMP_DIR"
 
@@ -162,7 +185,12 @@ jobs:
 
           tar -C "$NAME" -xf "$NAME.tar.git"
 
+          echo "========== Verify restored git =========="
+
+          test -d "$NAME/.git"
+
           cd "$NAME"
+
           git submodule update --init --recursive --
 
           rm -rf .git .gitmodules
@@ -177,26 +205,27 @@ jobs:
 
           sha256sum source.tar
 
-          echo "========== Compress with OpenWrt zstd =========="
+          echo "========== Host zstd =========="
 
-          "$GITHUB_WORKSPACE"/../none 2>/dev/null || true
-
-          /opt/openwrt/staging_dir/host/bin/zstd \
-            -T0 --ultra -20 -c source.tar > host.tar.zst
+          "$HOST_BIN/zstd" -T0 --ultra -20 -c \
+            source.tar > host.tar.zst
 
           sha256sum host.tar.zst
 
-          echo "========== Compress with system zstd =========="
+          echo "========== System zstd =========="
 
-          /usr/bin/zstd -T0 --ultra -20 -c source.tar > system.tar.zst
+          /usr/bin/zstd -T0 --ultra -20 -c \
+            source.tar > system.tar.zst
 
           sha256sum system.tar.zst
 
           echo "========== Compare =========="
 
-          cmp host.tar.zst system.tar.zst && echo "ZSTD OUTPUT IDENTICAL" || echo "ZSTD OUTPUT DIFFERENT"
+          cmp host.tar.zst system.tar.zst \
+            && echo "ZSTD OUTPUT IDENTICAL" \
+            || echo "ZSTD OUTPUT DIFFERENT"
 
-          echo "========== Expected hash =========="
+          echo "========== Expected SHA256 =========="
 
           echo "41fb2c79ce6014e28f7dd0cd8c65efe803986278f2587d1d4681883d8847d87c"
 
