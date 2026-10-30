@@ -261,7 +261,9 @@ jobs:
         run: |
           cd /opt/openwrt
 
-          make -j$(nproc) || make -j1 V=s
+          echo "========== Compile OpenWrt =========="
+
+          make -j1 V=s 2>&1 | tee build.log
 
           echo "status=success" >> $GITHUB_OUTPUT
 
