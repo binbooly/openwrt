@@ -70,6 +70,12 @@ jobs:
             cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
           fi
 
+          if [ -d /opt/openwrt/files ]; then
+            find /opt/openwrt/files -type d -exec chmod 0755 {} +
+            find /opt/openwrt/files -type f -exec chmod 0644 {} +
+            [ -d /opt/openwrt/files/etc/init.d ] && chmod 0755 /opt/openwrt/files/etc/init.d/*
+          fi
+
           mkdir -p /opt/openwrt/files/etc/uci-defaults
           cat << 'EOF' > /opt/openwrt/files/etc/uci-defaults/99-fix-rpcd-perms
           #!/bin/sh
@@ -80,6 +86,7 @@ jobs:
           fi
           exit 0
           EOF
+
           chmod 0755 /opt/openwrt/files/etc/uci-defaults/99-fix-rpcd-perms
 
       - name: Download packages
