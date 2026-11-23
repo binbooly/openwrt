@@ -70,14 +70,12 @@ jobs:
             cp -rf ${GITHUB_WORKSPACE}${RESOURCE_DIR}/* /opt/openwrt/
           fi
 
-          # 设置自定义 files 目录的基础权限。
           if [ -d /opt/openwrt/files ]; then
             find /opt/openwrt/files -type d -exec chmod 0755 {} +
             find /opt/openwrt/files -type f -exec chmod 0644 {} +
             [ -d /opt/openwrt/files/etc/init.d ] && chmod 0755 /opt/openwrt/files/etc/init.d/*
           fi
 
-          # 注入首次启动时自动修复 rpcd ucode 目录与文件权限的脚本。
           mkdir -p /opt/openwrt/files/etc/uci-defaults
           cat << 'EOF' > /opt/openwrt/files/etc/uci-defaults/99-fix-rpcd-perms
           #!/bin/sh
